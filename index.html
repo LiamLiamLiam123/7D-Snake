@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>7D Snake</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { overflow:hidden; background:#000; font-family:'Courier New',monospace; }
+#ui {
+  position:fixed; top:0; left:0; right:0;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  padding:20px 28px; pointer-events:none; z-index:10;
+}
+#game-title { font-size:11px; letter-spacing:0.35em; color:#ff6ec7; text-transform:uppercase; text-shadow:0 0 20px #ff6ec7; line-height:1.8; }
+#score-box { text-align:right; }
+#score { font-size:32px; color:#00ffe7; text-shadow:0 0 20px #00ffe7; letter-spacing:0.1em; }
+#score-label { font-size:9px; letter-spacing:0.4em; color:#00ffe788; text-transform:uppercase; }
+
+#hud-left {
+  position:fixed; left:24px; bottom:24px;
+  display:flex; flex-direction:column; gap:9px;
+  pointer-events:none; z-index:10; align-items:flex-start;
+}
+#compass-wrap { display:flex; flex-direction:column; gap:5px; }
+#compass-label { font-size:8px; letter-spacing:0.4em; color:#ff2d5566; text-transform:uppercase; }
+#compass { border-radius:50%; display:block; }
+.axis-row { display:flex; align-items:center; gap:7px; }
+.axis-lbl { font-size:8px; letter-spacing:0.3em; text-transform:uppercase; width:14px; }
+.axis-bg { width:90px; height:3px; background:#ffffff0d; border-radius:2px; }
+.axis-fill { height:3px; border-radius:2px; width:50%; transition:width 0.1s; }
+#lbl-w{color:#7b2fff99;} #fill-w{background:linear-gradient(90deg,#7b2fff,#ff6ec7);box-shadow:0 0 5px #7b2fff;}
+#lbl-v{color:#ff950099;} #fill-v{background:linear-gradient(90deg,#ff9500,#ffcc00);box-shadow:0 0 5px #ff9500;}
+#lbl-u{color:#ff2d5599;} #fill-u{background:linear-gradient(90deg,#ff2d55,#ff88aa);box-shadow:0 0 5px #ff2d55;}
+#lbl-t{color:#00ff9988;} #fill-t{background:linear-gradient(90deg,#00ff99,#00ffcc);box-shadow:0 0 5px #00ff99;}
+
+#dim-label { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); font-size:9px; letter-spacing:0.5em; color:#ffffff22; text-transform:uppercase; pointer-events:none; }
+#controls  { position:fixed; bottom:24px; right:28px; font-size:8px; letter-spacing:0.2em; color:#ffffff44; text-transform:uppercase; line-height:2.1; pointer-events:none; text-align:right; }
+
+#dpad { display:none; position:fixed; right:20px; bottom:20px; width:156px; height:156px; z-index:15; pointer-events:all; }
+#dpad button { position:absolute; width:46px; height:46px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:#fff; font-size:18px; cursor:pointer; user-select:none; touch-action:manipulation; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; transition:background 0.1s; }
+#dpad button:active { background:rgba(255,255,255,0.22); }
+#btn-up{top:0;left:55px;} #btn-down{bottom:0;left:55px;} #btn-left{top:55px;left:0;} #btn-right{top:55px;right:0;} #btn-rev{top:55px;left:55px;font-size:10px;}
+.xpad { display:none; position:fixed; gap:4px; z-index:15; pointer-events:all; flex-direction:column; }
+.xpad button { width:48px; height:28px; border-radius:6px; font-family:'Courier New',monospace; font-size:9px; letter-spacing:0.1em; cursor:pointer; touch-action:manipulation; border:none; -webkit-tap-highlight-color:transparent; transition:background 0.1s; }
+#wpad{right:20px;bottom:186px;} #wpad button{background:rgba(123,47,255,0.2);color:#cc99ff;border:1px solid rgba(123,47,255,0.35);}
+#vpad{right:76px;bottom:186px;} #vpad button{background:rgba(255,149,0,0.2);color:#ffcc66;border:1px solid rgba(255,149,0,0.35);}
+#upad{right:132px;bottom:186px;} #upad button{background:rgba(255,45,85,0.2);color:#ff88aa;border:1px solid rgba(255,45,85,0.35);}
+#tpad{right:188px;bottom:186px;} #tpad button{background:rgba(0,255,153,0.15);color:#00ffcc;border:1px solid rgba(0,255,153,0.3);}
+
+#dead-overlay { position:fixed; inset:0; background:#00000099; display:none; align-items:center; justify-content:center; flex-direction:column; gap:16px; z-index:20; backdrop-filter:blur(4px); }
+#dead-overlay h1 { font-size:48px; letter-spacing:0.2em; color:#ff2d55; text-shadow:0 0 40px #ff2d55; text-transform:uppercase; }
+#dead-overlay p { font-size:11px; letter-spacing:0.5em; color:#ffffff66; text-transform:uppercase; }
+#dead-overlay button { margin-top:16px; padding:12px 40px; background:none; border:1px solid #ff2d5566; color:#ff2d55; font-family:inherit; font-size:10px; letter-spacing:0.4em; text-transform:uppercase; cursor:pointer; transition:all 0.2s; }
+#dead-overlay button:hover { background:#ff2d5511; border-color:#ff2d55; }
+
+#title-screen { position:fixed; inset:0; z-index:30; display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(ellipse at 50% 40%,#0a0520 0%,#000510 60%,#000 100%); }
+#title-screen h1 { font-size:clamp(40px,9vw,82px); letter-spacing:0.18em; color:#00ffe7; text-shadow:0 0 40px #00ffe7,0 0 80px #00ffe744,0 0 120px #00ffe722; text-transform:uppercase; text-align:center; margin-bottom:6px; }
+.subtitle { font-size:clamp(9px,1.8vw,12px); letter-spacing:0.55em; color:#ffffff33; text-transform:uppercase; margin-bottom:40px; text-align:center; }
+.mode-cards { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; padding:0 20px; }
+.mode-card { width:195px; border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:22px 18px 18px; background:rgba(255,255,255,0.03); display:flex; flex-direction:column; gap:8px; cursor:pointer; transition:all 0.25s; user-select:none; }
+.mode-card:hover { background:rgba(255,255,255,0.07); transform:translateY(-2px); }
+.mode-card.normal{border-color:rgba(0,255,231,0.25);} .mode-card.normal:hover{border-color:#00ffe7;box-shadow:0 0 24px #00ffe722;}
+.mode-card.mobile{border-color:rgba(255,110,199,0.25);} .mode-card.mobile:hover{border-color:#ff6ec7;box-shadow:0 0 24px #ff6ec722;}
+.mode-icon{font-size:24px;} .mode-title{font-size:13px;letter-spacing:0.3em;text-transform:uppercase;}
+.mode-card.normal .mode-title{color:#00ffe7;} .mode-card.mobile .mode-title{color:#ff6ec7;}
+.mode-desc{font-size:8px;letter-spacing:0.14em;color:#ffffff44;text-transform:uppercase;line-height:2.1;}
+.mode-btn{margin-top:6px;padding:9px 0;text-align:center;border-radius:6px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:0.4em;text-transform:uppercase;border:none;cursor:pointer;transition:all 0.2s;}
+.mode-card.normal .mode-btn{background:rgba(0,255,231,0.12);color:#00ffe7;} .mode-card.normal:hover .mode-btn{background:rgba(0,255,231,0.22);}
+.mode-card.mobile .mode-btn{background:rgba(255,110,199,0.12);color:#ff6ec7;} .mode-card.mobile:hover .mode-btn{background:rgba(255,110,199,0.22);}
+.title-tagline{margin-top:36px;font-size:8px;letter-spacing:0.5em;color:#ffffff18;text-transform:uppercase;text-align:center;}
+.title-credit{margin-top:10px;font-size:8px;letter-spacing:0.4em;color:#ffffffcc;text-transform:uppercase;text-align:center;}
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <h1>7D Snake</h1>
+  <div class="subtitle">navigate the hepteract</div>
+  <div class="mode-cards">
+    <div class="mode-card normal" onclick="beginGame('normal')">
+      <div class="mode-icon">⌨️</div>
+      <div class="mode-title">Normal</div>
+      <div class="mode-desc">
+        ← → &nbsp;turn<br>
+        ↓ &nbsp;&nbsp;&nbsp;&nbsp;reverse<br>
+        W/S &nbsp;shift w<br>
+        E/Q &nbsp;shift v<br>
+        R/F &nbsp;shift u<br>
+        T/G &nbsp;shift t
+      </div>
+      <button class="mode-btn">Play</button>
+    </div>
+    <div class="mode-card mobile" onclick="beginGame('mobile')">
+      <div class="mode-icon">📱</div>
+      <div class="mode-title">Mobile</div>
+      <div class="mode-desc">
+        D-pad turn<br>
+        ● &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reverse<br>
+        W± V± U± T±<br>
+        shift extra dims
+      </div>
+      <button class="mode-btn">Play</button>
+    </div>
+  </div>
+  <div class="title-tagline">7-dimensional hepteract &middot; projected to &#8477;&sup3;</div>
+  <div class="title-credit">Made by Liam Stephenson, as a fan project</div>
+</div>
+
+<div id="ui">
+  <div id="game-title">&#9672; 7D Snake</div>
+  <div id="score-box"><div id="score-label">score</div><div id="score">0</div></div>
+</div>
+
+<div id="hud-left">
+  <div id="compass-wrap">
+    <div id="compass-label">food direction</div>
+    <canvas id="compass" width="80" height="80"></canvas>
+  </div>
+  <div class="axis-row"><div class="axis-lbl" id="lbl-w">W</div><div class="axis-bg"><div class="axis-fill" id="fill-w"></div></div></div>
+  <div class="axis-row"><div class="axis-lbl" id="lbl-v">V</div><div class="axis-bg"><div class="axis-fill" id="fill-v"></div></div></div>
+  <div class="axis-row"><div class="axis-lbl" id="lbl-u">U</div><div class="axis-bg"><div class="axis-fill" id="fill-u"></div></div></div>
+  <div class="axis-row"><div class="axis-lbl" id="lbl-t">T</div><div class="axis-bg"><div class="axis-fill" id="fill-t"></div></div></div>
+</div>
+
+<div id="controls">← → turn<br>↓ reverse<br>W/S w-axis<br>E/Q v-axis<br>R/F u-axis<br>T/G t-axis</div>
+<div id="dim-label">7-dimensional hepteract &middot; projected to &#8477;&sup3;</div>
+
+<div id="dpad">
+  <button id="btn-up"    onclick="dp('left')">▲</button>
+  <button id="btn-left"  onclick="dp('left')">◀</button>
+  <button id="btn-rev"   onclick="dp('rev')">●</button>
+  <button id="btn-right" onclick="dp('right')">▶</button>
+  <button id="btn-down"  onclick="dp('right')">▼</button>
+</div>
+<div id="wpad" class="xpad"><button onclick="dp('wup')">W+</button><button onclick="dp('wdn')">W−</button></div>
+<div id="vpad" class="xpad"><button onclick="dp('vup')">V+</button><button onclick="dp('vdn')">V−</button></div>
+<div id="upad" class="xpad"><button onclick="dp('uup')">U+</button><button onclick="dp('udn')">U−</button></div>
+<div id="tpad" class="xpad"><button onclick="dp('tup')">T+</button><button onclick="dp('tdn')">T−</button></div>
+
+<div id="dead-overlay">
+  <h1>Collapsed</h1>
+  <p>Self-intersection in 7D space</p>
+  <button onclick="restartGame()">Restart</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+var SIZE=16,HALF=8,SPEED=200,rot4=0;
+
+// =============================================================================
+//  7D → 3D  (4 successive perspective projections)
+// =============================================================================
+function p7(x,y,z,w,v,u,t){
+  // 7D→6D: collapse T via XT and YT rotation
+  var c1=Math.cos(rot4*0.13),s1=Math.sin(rot4*0.13);
+  var rx1=x*c1-t*s1,rt=x*s1+t*c1;
+  var c2=Math.cos(rot4*0.11),s2=Math.sin(rot4*0.11);
+  var ry1=y*c2-rt*s2,rt2=y*s2+rt*c2;
+  var d7=2.2,dn7=d7-rt2/HALF;if(dn7<0.2)dn7=0.2;var s7=d7/dn7;
+  var px6=rx1*s7,py6=ry1*s7,pz6=z*s7,pw6=w*s7,pv6=v*s7,pu6=u*s7;
+
+  // 6D→5D: collapse U via XU and YU rotation
+  var c3=Math.cos(rot4*0.17),s3=Math.sin(rot4*0.17);
+  var rx2=px6*c3-pu6*s3,ru=px6*s3+pu6*c3;
+  var c4=Math.cos(rot4*0.15),s4=Math.sin(rot4*0.15);
+  var ry2=py6*c4-ru*s4,ru2=py6*s4+ru*c4;
+  var d6=2.3,dn6=d6-ru2/(HALF*s7);if(dn6<0.2)dn6=0.2;var s6=d6/dn6;
+  var px5=rx2*s6,py5=ry2*s6,pz5=pz6*s6,pw5=pw6*s6,pv5=pv6*s6;
+
+  // 5D→4D: collapse V via XV and YV rotation
+  var c5=Math.cos(rot4*0.23),s5=Math.sin(rot4*0.23);
+  var rx3=px5*c5-pv5*s5,rv=px5*s5+pv5*c5;
+  var c6=Math.cos(rot4*0.19),s6b=Math.sin(rot4*0.19);
+  var ry3=py5*c6-rv*s6b,rv2=py5*s6b+rv*c6;
+  var d5=2.5,dn5=d5-rv2/(HALF*s7*s6);if(dn5<0.2)dn5=0.2;var s5b=d5/dn5;
+  var px4=rx3*s5b,py4=ry3*s5b,pz4=pz5*s5b,pw4=pw5*s5b;
+
+  // 4D→3D: collapse W via XW and YW rotation
+  var c7=Math.cos(rot4*0.31),s7b=Math.sin(rot4*0.31);
+  var rx4=px4*c7-pw4*s7b,rw=px4*s7b+pw4*c7;
+  var c8=Math.cos(rot4*0.27),s8=Math.sin(rot4*0.27);
+  var ry4=py4*c8-rw*s8,rw2=py4*s8+rw*c8;
+  var d4=2.8,dn4=d4-rw2/(HALF*s7*s6*s5b);if(dn4<0.2)dn4=0.2;var s4=d4/dn4;
+
+  return new THREE.Vector3(rx4*s4,ry4*s4,pz4*s4);
+}
+
+// Scene
+var scene=new THREE.Scene();scene.background=new THREE.Color(0x000510);
+var camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,1000);
+var renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+document.body.appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0x223355,0.9));
+var dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(10,20,15);scene.add(dl);
+[[0x00ffff,2,90,[-20,20,20]],[0xff44ff,2,90,[20,-20,-20]],[0xff9500,1.5,80,[20,20,-20]],[0x00ff99,1.5,80,[-20,-20,20]]].forEach(function(p){
+  var l=new THREE.PointLight(p[0],p[1],p[2]);l.position.set(p[3][0],p[3][1],p[3][2]);scene.add(l);
+});
+
+// =============================================================================
+//  HEPTERACT: 2^7=128 vertices, 7*2^6=448 edges
+// =============================================================================
+var wireLines=[],wireNodes=[];
+
+function buildHepteract(){
+  var i,j;
+  for(i=0;i<wireLines.length;i++)scene.remove(wireLines[i]);
+  for(i=0;i<wireNodes.length;i++)scene.remove(wireNodes[i]);
+  wireLines=[];wireNodes=[];
+
+  var V=[-HALF,HALF],verts=[];
+  for(var a=0;a<2;a++)for(var b=0;b<2;b++)for(var c=0;c<2;c++)
+  for(var d=0;d<2;d++)for(var e=0;e<2;e++)for(var f=0;f<2;f++)for(var g=0;g<2;g++)
+    verts.push({x:V[a],y:V[b],z:V[c],w:V[d],v:V[e],u:V[f],t:V[g]});
+
+  var edges=[];
+  for(i=0;i<verts.length;i++)
+    for(j=i+1;j<verts.length;j++){
+      var A=verts[i],B=verts[j];
+      var dif=(A.x!==B.x?1:0)+(A.y!==B.y?1:0)+(A.z!==B.z?1:0)+
+              (A.w!==B.w?1:0)+(A.v!==B.v?1:0)+(A.u!==B.u?1:0)+(A.t!==B.t?1:0);
+      if(dif===1)edges.push([A,B]);
+    }
+
+  var COLS=[0xff44ff,0xff6600,0xffee00,0x00ff99,0x00ffff];
+  var OPS=[0.85,0.58,0.62,0.68,0.90];
+
+  for(i=0;i<edges.length;i++){
+    var A=edges[i][0],B=edges[i][1];
+    var shA=(A.w===HALF?1:0)+(A.v===HALF?1:0)+(A.u===HALF?1:0)+(A.t===HALF?1:0);
+    var shB=(B.w===HALF?1:0)+(B.v===HALF?1:0)+(B.u===HALF?1:0)+(B.t===HALF?1:0);
+    var sh=Math.min(shA,shB);
+    var col=COLS[sh],op=OPS[sh];
+    var pa=p7(A.x,A.y,A.z,A.w,A.v,A.u,A.t),pb=p7(B.x,B.y,B.z,B.w,B.v,B.u,B.t);
+    var pts=[pa.x,pa.y,pa.z,pb.x,pb.y,pb.z];
+
+    var g1=new THREE.BufferGeometry();g1.setAttribute('position',new THREE.Float32BufferAttribute(pts.slice(),3));
+    var l1=new THREE.Line(g1,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false}));
+    l1._va=A;l1._vb=B;scene.add(l1);wireLines.push(l1);
+
+    var g2=new THREE.BufferGeometry();g2.setAttribute('position',new THREE.Float32BufferAttribute(pts.slice(),3));
+    var l2=new THREE.Line(g2,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:op*0.12,blending:THREE.AdditiveBlending,depthWrite:false}));
+    l2._va=A;l2._vb=B;scene.add(l2);wireLines.push(l2);
+  }
+
+  var nG=new THREE.SphereGeometry(0.15,6,6);
+  for(i=0;i<verts.length;i++){
+    var vt=verts[i];
+    var sh=(vt.w===HALF?1:0)+(vt.v===HALF?1:0)+(vt.u===HALF?1:0)+(vt.t===HALF?1:0);
+    var nd=new THREE.Mesh(nG,new THREE.MeshBasicMaterial({color:COLS[sh],transparent:true,opacity:0.8,blending:THREE.AdditiveBlending,depthWrite:false}));
+    nd._v7=vt;nd.position.copy(p7(vt.x,vt.y,vt.z,vt.w,vt.v,vt.u,vt.t));
+    scene.add(nd);wireNodes.push(nd);
+  }
+}
+
+function updateHepteract(){
+  for(var i=0;i<wireLines.length;i++){
+    var l=wireLines[i];
+    var pa=p7(l._va.x,l._va.y,l._va.z,l._va.w,l._va.v,l._va.u,l._va.t);
+    var pb=p7(l._vb.x,l._vb.y,l._vb.z,l._vb.w,l._vb.v,l._vb.u,l._vb.t);
+    l.geometry.setAttribute('position',new THREE.Float32BufferAttribute([pa.x,pa.y,pa.z,pb.x,pb.y,pb.z],3));
+    l.geometry.attributes.position.needsUpdate=true;
+  }
+  for(var i=0;i<wireNodes.length;i++){
+    var n=wireNodes[i];
+    n.position.copy(p7(n._v7.x,n._v7.y,n._v7.z,n._v7.w,n._v7.v,n._v7.u,n._v7.t));
+  }
+}
+
+// =============================================================================
+//  GAME STATE
+// =============================================================================
+var snake=[],dir=new THREE.Vector3(1,0,0),nrm=new THREE.Vector3(0,0,1),head=new THREE.Vector3(0,0,HALF);
+var wC=0,vC=0,uC=0,tC=0,food=null,score=0,alive=true,skipTC=false,started=false,dq=null;
+
+function snakeMesh(h){
+  return new THREE.Mesh(new THREE.BoxGeometry(0.9,0.9,0.9),
+    new THREE.MeshStandardMaterial({color:h?0x00ffe7:0x00aa77,emissive:h?0x00ddbb:0x002211,
+    emissiveIntensity:h?0.55:0.12,roughness:0.35,metalness:0.65}));
+}
+function foodMesh(){
+  return new THREE.Mesh(new THREE.OctahedronGeometry(0.72),
+    new THREE.MeshStandardMaterial({color:0xff2d55,emissive:0xff2d55,emissiveIntensity:0.75,roughness:0.25,metalness:0.5}));
+}
+function rS(){
+  var ax=Math.floor(Math.random()*3),sg=Math.random()>0.5?1:-1;
+  var p=new THREE.Vector3(Math.round((Math.random()*2-1)*(HALF-1)),Math.round((Math.random()*2-1)*(HALF-1)),Math.round((Math.random()*2-1)*(HALF-1)));
+  if(ax===0)p.x=sg*HALF;if(ax===1)p.y=sg*HALF;if(ax===2)p.z=sg*HALF;return p;
+}
+function rH(){return Math.round((Math.random()*2-1)*HALF);}
+
+function spawnFood(){
+  if(food)scene.remove(food.mesh);
+  var pos=rS(),w=rH(),v=rH(),u=rH(),t=rH();
+  var m=foodMesh();m.position.copy(p7(pos.x,pos.y,pos.z,w,v,u,t));scene.add(m);
+  food={mesh:m,pos:pos,w:w,v:v,u:u,t:t};
+}
+
+function wrapFace(){
+  ['x','y','z'].forEach(function(ax){
+    if(Math.abs(head[ax])>HALF){
+      var sg=Math.sign(head[ax]);head[ax]=sg*HALF;
+      var nn=new THREE.Vector3();nn[ax]=sg;
+      var ra=new THREE.Vector3().crossVectors(nrm,nn);
+      if(ra.length()>0){ra.normalize();dir.applyAxisAngle(ra,Math.PI/2);dir.x=Math.round(dir.x);dir.y=Math.round(dir.y);dir.z=Math.round(dir.z);}
+      nrm.copy(nn);
+    }
+  });
+}
+
+function startGame(){
+  snake.forEach(function(s){scene.remove(s.mesh);});snake=[];
+  if(food){scene.remove(food.mesh);food=null;}
+  score=0;alive=true;wC=0;vC=0;uC=0;tC=0;started=true;
+  head=new THREE.Vector3(0,0,HALF);dir=new THREE.Vector3(1,0,0);nrm=new THREE.Vector3(0,0,1);
+  document.getElementById('score').textContent='0';
+  document.getElementById('dead-overlay').style.display='none';
+  [new THREE.Vector3(0,0,HALF),new THREE.Vector3(-1,0,HALF),new THREE.Vector3(-2,0,HALF)].forEach(function(pos,i){
+    var m=snakeMesh(i===0);m.position.copy(p7(pos.x,pos.y,pos.z,0,0,0,0));scene.add(m);
+    snake.push({mesh:m,pos:pos.clone(),w:0,v:0,u:0,t:0});
+  });
+  spawnFood();updateBars();
+}
+
+function step(){
+  if(!alive)return;
+  head.add(dir);wrapFace();
+  var si=skipTC?2:1;skipTC=false;
+  for(var i=si;i<snake.length;i++){
+    if(snake[i].pos.distanceTo(head)<0.5&&snake[i].w===wC&&snake[i].v===vC&&snake[i].u===uC&&snake[i].t===tC){die();return;}
+  }
+  var ate=food&&head.distanceTo(food.pos)<0.5&&wC===food.w&&vC===food.v&&uC===food.u&&tC===food.t;
+  if(ate){score++;document.getElementById('score').textContent=score;spawnFood();}
+  else{var tl=snake.pop();scene.remove(tl.mesh);}
+  var nm=snakeMesh(true);nm.position.copy(p7(head.x,head.y,head.z,wC,vC,uC,tC));scene.add(nm);
+  if(snake.length>0){snake[0].mesh.material.color.setHex(0x00aa77);snake[0].mesh.material.emissive.setHex(0x002211);snake[0].mesh.material.emissiveIntensity=0.12;}
+  snake.unshift({mesh:nm,pos:head.clone(),w:wC,v:vC,u:uC,t:tC});
+}
+
+function die(){alive=false;document.getElementById('dead-overlay').style.display='flex';}
+
+function updateBars(){
+  document.getElementById('fill-w').style.width=((wC+HALF)/SIZE*100)+'%';
+  document.getElementById('fill-v').style.width=((vC+HALF)/SIZE*100)+'%';
+  document.getElementById('fill-u').style.width=((uC+HALF)/SIZE*100)+'%';
+  document.getElementById('fill-t').style.width=((tC+HALF)/SIZE*100)+'%';
+}
+
+// Camera
+var camP=new THREE.Vector3(0,0,30),camT=new THREE.Vector3();
+function updateCam(){
+  var hp=p7(head.x,head.y,head.z,wC,vC,uC,tC);
+  var d=nrm.clone().multiplyScalar(6).add(dir.clone().multiplyScalar(-8)).add(hp);
+  camP.lerp(d,0.18);camera.position.copy(camP);camera.up.copy(nrm);camT.lerp(hp,0.18);camera.lookAt(camT);
+}
+
+// Compass — 4 rings
+var cC=document.getElementById('compass'),cX=cC.getContext('2d');
+function drawCompass(){
+  var cx=40,cy=40,r=34;cX.clearRect(0,0,80,80);
+  cX.beginPath();cX.arc(cx,cy,r,0,Math.PI*2);cX.fillStyle='rgba(0,0,0,0.55)';cX.fill();
+  if(!food)return;
+  var hp=p7(head.x,head.y,head.z,wC,vC,uC,tC);
+  var fp=p7(food.pos.x,food.pos.y,food.pos.z,food.w,food.v,food.u,food.t);
+  var hv=hp.clone().project(camera),fv=fp.clone().project(camera);
+  var dx=fv.x-hv.x,dy=-(fv.y-hv.y),len=Math.sqrt(dx*dx+dy*dy);
+  var wD=food.w-wC,vD=food.v-vC,uD=food.u-uC,tD=food.t-tC;
+  var all=(wD===0&&vD===0&&uD===0&&tD===0);
+  function dc(d,pos,neg){return d===0?'#00ff66':(d>0?pos:neg);}
+  var wCol=dc(wD,'#00ffff','#ff44ff'),vCol=dc(vD,'#ffee00','#ff6600'),uCol=dc(uD,'#ff6ec7','#ff2d55'),tCol=dc(tD,'#00ffcc','#00aa66');
+  [[r,wCol,0.55,2.5],[r-5,vCol,0.45,2],[r-10,uCol,0.35,1.8],[r-15,tCol,0.28,1.5]].forEach(function(ring){
+    cX.beginPath();cX.arc(cx,cy,ring[0],0,Math.PI*2);cX.strokeStyle=ring[1];cX.globalAlpha=ring[2];cX.lineWidth=ring[3];cX.stroke();
+  });
+  cX.globalAlpha=1;
+  if(len<0.01){cX.beginPath();cX.arc(cx,cy,4,0,Math.PI*2);cX.fillStyle='#00ff66';cX.fill();return;}
+  var nx=dx/len,ny=dy/len,angle=Math.atan2(ny,nx);
+  var tx=cx+nx*(r-14),ty=cy+ny*(r-14);
+  var ac=all?'#00ff66':'#ff2d55';
+  cX.beginPath();cX.moveTo(cx-nx*6,cy-ny*6);cX.lineTo(tx,ty);cX.strokeStyle=ac;cX.lineWidth=2.5;cX.lineCap='round';cX.stroke();
+  cX.beginPath();
+  cX.moveTo(tx,ty);cX.lineTo(tx+Math.cos(angle+2.36)*6,ty+Math.sin(angle+2.36)*6);
+  cX.moveTo(tx,ty);cX.lineTo(tx+Math.cos(angle-2.36)*6,ty+Math.sin(angle-2.36)*6);
+  cX.strokeStyle=ac;cX.lineWidth=2;cX.stroke();
+  if(!all){
+    var labs=[];
+    if(wD!==0)labs.push((wD>0?'W+':'W-')+Math.abs(wD));
+    if(vD!==0)labs.push((vD>0?'V+':'V-')+Math.abs(vD));
+    if(uD!==0)labs.push((uD>0?'U+':'U-')+Math.abs(uD));
+    if(tD!==0)labs.push((tD>0?'T+':'T-')+Math.abs(tD));
+    cX.font='7px Courier New';cX.fillStyle='#ffffff66';cX.textAlign='center';
+    if(labs.length<=2){cX.fillText(labs.join(' '),cx,cy+3);}
+    else{cX.fillText(labs.slice(0,2).join(' '),cx,cy-2);cX.fillText(labs.slice(2).join(' '),cx,cy+9);}
+  }
+}
+
+// Animate
+var lt=0,ma=0,fs=0;
+function animate(ts){
+  requestAnimationFrame(animate);
+  var dt=Math.min(ts-lt,200);lt=ts;rot4+=dt*0.0005;
+  updateHepteract();
+  if(started){
+    snake.forEach(function(s){s.mesh.position.copy(p7(s.pos.x,s.pos.y,s.pos.z,s.w,s.v,s.u,s.t));});
+    if(food){fs+=dt*0.003;food.mesh.rotation.y=fs;food.mesh.rotation.x=fs*0.7;food.mesh.position.copy(p7(food.pos.x,food.pos.y,food.pos.z,food.w,food.v,food.u,food.t));}
+    if(alive){processDq();ma+=dt;if(ma>=SPEED){ma-=SPEED;step();}}
+    updateCam();
+  }
+  renderer.render(scene,camera);
+  if(started)drawCompass();
+}
+
+// Controls
+function processDq(){
+  if(!dq)return;var a=dq;dq=null;
+  if(a==='left'){dir.crossVectors(nrm,dir);dir.x=Math.round(dir.x);dir.y=Math.round(dir.y);dir.z=Math.round(dir.z);}
+  if(a==='right'){dir.crossVectors(dir,nrm);dir.x=Math.round(dir.x);dir.y=Math.round(dir.y);dir.z=Math.round(dir.z);}
+  if(a==='rev'){dir.negate();skipTC=true;}
+  if(a==='wup'){wC=Math.min(HALF,wC+1);updateBars();}if(a==='wdn'){wC=Math.max(-HALF,wC-1);updateBars();}
+  if(a==='vup'){vC=Math.min(HALF,vC+1);updateBars();}if(a==='vdn'){vC=Math.max(-HALF,vC-1);updateBars();}
+  if(a==='uup'){uC=Math.min(HALF,uC+1);updateBars();}if(a==='udn'){uC=Math.max(-HALF,uC-1);updateBars();}
+  if(a==='tup'){tC=Math.min(HALF,tC+1);updateBars();}if(a==='tdn'){tC=Math.max(-HALF,tC-1);updateBars();}
+}
+function dp(a){dq=a;}
+
+document.addEventListener('keydown',function(e){
+  if(!started||!alive)return;
+  if(e.key==='ArrowLeft'){dir.crossVectors(nrm,dir);dir.x=Math.round(dir.x);dir.y=Math.round(dir.y);dir.z=Math.round(dir.z);}
+  if(e.key==='ArrowRight'){dir.crossVectors(dir,nrm);dir.x=Math.round(dir.x);dir.y=Math.round(dir.y);dir.z=Math.round(dir.z);}
+  if(e.key==='ArrowDown'){dir.negate();skipTC=true;}
+  if(e.key==='w'||e.key==='W'){wC=Math.min(HALF,wC+1);updateBars();}
+  if(e.key==='s'||e.key==='S'){wC=Math.max(-HALF,wC-1);updateBars();}
+  if(e.key==='e'||e.key==='E'){vC=Math.min(HALF,vC+1);updateBars();}
+  if(e.key==='q'||e.key==='Q'){vC=Math.max(-HALF,vC-1);updateBars();}
+  if(e.key==='r'||e.key==='R'){uC=Math.min(HALF,uC+1);updateBars();}
+  if(e.key==='f'||e.key==='F'){uC=Math.max(-HALF,uC-1);updateBars();}
+  if(e.key==='t'||e.key==='T'){tC=Math.min(HALF,tC+1);updateBars();}
+  if(e.key==='g'||e.key==='G'){tC=Math.max(-HALF,tC-1);updateBars();}
+  e.preventDefault();
+});
+
+window.addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+function beginGame(mode){
+  document.getElementById('title-screen').style.display='none';
+  if(mode==='mobile'){
+    ['dpad','wpad','vpad','upad','tpad'].forEach(function(id){document.getElementById(id).style.display=id==='dpad'?'block':'flex';});
+    document.getElementById('controls').style.display='none';
+    document.getElementById('dim-label').style.display='none';
+  }
+  buildHepteract();startGame();
+}
+function restartGame(){document.getElementById('dead-overlay').style.display='none';buildHepteract();startGame();}
+
+buildHepteract();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
